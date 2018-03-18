@@ -10,8 +10,8 @@
 
 /*
  * Space or zero padding and a field width are supported for the numeric
- * formats only. 
- * 
+ * formats only.
+ *
  * The special format %e takes an integer error code
  * and prints a string describing the error.
  * The integer may be positive or negative,
@@ -29,30 +29,61 @@ static const char * const error_string[MAXERROR] =
 };
 
 /*
+ * Calculate the width that a number will occupy when printed.
+ */
+static int
+num_width(unsigned long long num, unsigned base)
+{
+	int width = 0;
+
+	if (num >= base)
+		width = num_width(num / base, base);
+
+	return width + 1;
+}
+
+/*
  * Print a number (base <= 16) in reverse order,
  * using specified putch function and associated pointer putdat.
+ * Does not print any padding.
+ */
+static void
+printnum_nopad(void (*putch)(int, void*), void *putdat,
+	 unsigned long long num, unsigned base)
+{
+	// first recursively print all preceding (more significant) digits
+	if (num >= base)
+		printnum_nopad(putch, putdat, num / base, base);
+
+	// then print this (the least significant) digit
+	putch("0123456789abcdef"[num % base], putdat);
+}
+
+/*
+ * Print a number (base <= 16) in reverse order,
+ * using specified putch function and associated pointer putdat.
+ * Print padding according to format.
  */
 static void
 printnum(void (*putch)(int, void*), void *putdat,
 	 unsigned long long num, unsigned base, int width, int padc)
 {
-	// if cprintf'parameter includes pattern of the form "%-", padding
-	// space on the right side if neccesary.
-	// you can add helper function if needed.
-	// your code here:
+	// If cprintf's format includes pattern of the form "%-",
+	// pad space on the right side if necessary.
+	// You can add helper functions if needed.
+	// Your code here:
 
+	int rest_width = width - num_width(num, base);
 
-	// first recursively print all preceding (more significant) digits
-	if (num >= base) {
-		printnum(putch, putdat, num / base, base, width - 1, padc);
-	} else {
-		// print any needed pad characters before first digit
-		while (--width > 0)
+	if (padc != '-') // print any needed pad characters before first digit
+		while (rest_width-- > 0)
 			putch(padc, putdat);
-	}
 
-	// then print this (the least significant) digit
-	putch("0123456789abcdef"[num % base], putdat);
+	printnum_nopad(putch, putdat, num, base);
+
+	if (padc == '-') // print any needed pad characters after last digit
+		while (rest_width-- > 0)
+			putch(' ', putdat);
 }
 
 // Get an unsigned int of various possible sizes from a varargs list,
@@ -91,7 +122,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	register const char *p;
 	register int ch, err;
 	unsigned long long num;
-	int base, lflag, width, precision, altflag;
+	int base, lflag, width, precision, altflag, snflag;
 	char padc;
 
 	while (1) {
@@ -107,6 +138,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		precision = -1;
 		lflag = 0;
 		altflag = 0;
+		snflag = 0;
 	reswitch:
 		switch (ch = *(unsigned char *) fmt++) {
 
@@ -114,7 +146,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case '-':
 			padc = '-';
 			goto reswitch;
-			
+
+		// flag to force showing the sign
+		case '+':
+			snflag = 1;
+			goto reswitch;
+
 		// flag to pad with 0's instead of spaces
 		case '0':
 			padc = '0';
@@ -199,12 +236,16 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			if ((long long) num < 0) {
 				putch('-', putdat);
 				num = -(long long) num;
+			} else if (snflag) {
+				putch('+', putdat);
 			}
 			base = 10;
 			goto number;
 
 		// unsigned decimal
 		case 'u':
+			if (snflag)
+				putch('+', putdat);
 			num = getuint(&ap, lflag);
 			base = 10;
 			goto number;
@@ -213,13 +254,17 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case 'o':
 			// Replace this with your code.
 			// display a number in octal form and the form should begin with '0'
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			if (snflag)
+				putch('+', putdat);
+			putch('0', putdat);
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 
 		// pointer
 		case 'p':
+			if (snflag)
+				putch('+', putdat);
 			putch('0', putdat);
 			putch('x', putdat);
 			num = (unsigned long long)
@@ -229,6 +274,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (unsigned) hexadecimal
 		case 'x':
+			if (snflag)
+				putch('+', putdat);
 			num = getuint(&ap, lflag);
 			base = 16;
 		number:
@@ -237,19 +284,19 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
         case 'n': {
             // You can consult the %n specifier specification of the C99 printf function
-            // for your reference by typing "man 3 printf" on the console. 
+            // for your reference by typing "man 3 printf" on the console.
 
-            // 
+            //
             // Requirements:
-            // Nothing printed. The argument must be a pointer to a signed char, 
+            // Nothing printed. The argument must be a pointer to a signed char,
             // where the number of characters written so far is stored.
             //
 
-            // hint:  use the following strings to display the error messages 
+            // hint:  use the following strings to display the error messages
             //        when the cprintf function ecounters the specific cases,
             //        for example, when the argument pointer is NULL
-            //        or when the number of characters written so far 
-            //        is beyond the range of the integers the signed char type 
+            //        or when the number of characters written so far
+            //        is beyond the range of the integers the signed char type
             //        can represent.
 
             const char *null_error = "\nerror! writing through NULL pointer! (%n argument)\n";
@@ -264,7 +311,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case '%':
 			putch(ch, putdat);
 			break;
-			
+
 		// unrecognized escape sequence - just print it literally
 		default:
 			putch('%', putdat);
@@ -328,5 +375,3 @@ snprintf(char *buf, int n, const char *fmt, ...)
 
 	return rc;
 }
-
-
