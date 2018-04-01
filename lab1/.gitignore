@@ -1,4 +1,5 @@
-obj
-.gdbinit
-jos.out
-*.tar.gz
+/obj
+/.gdbinit
+/jos.out
+/*.tar.gz
+/conf/lab.mk

@@ -24,6 +24,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display stack backtrace", mon_backtrace},
+	{ "time", "Measure CPU cycles that a command costs", mon_time},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -61,7 +63,7 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 static uint32_t
 read_pretaddr() {
     uint32_t pretaddr;
-    __asm __volatile("leal 4(%%ebp), %0" : "=r" (pretaddr)); 
+    __asm __volatile("leal 4(%%ebp), %0" : "=r" (pretaddr));
     return pretaddr;
 }
 
@@ -69,10 +71,41 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	cprintf("Stack backtrace:\n");
+
+	uint32_t* ebp = (uint32_t *)read_ebp();
+	unsigned eip = read_eip();
+	struct Eipdebuginfo info;
+
+	while (ebp) {
+		cprintf("  eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n", eip, ebp, ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+		debuginfo_eip(eip, &info);
+		cprintf("         %s:%d: %s+%d\n", info.eip_file, info.eip_line, info.eip_fn_name, eip - info.eip_fn_addr);
+		ebp = (uint32_t *)ebp[0]; // Upper level ebp.
+		eip = ebp[1]; // Upper level eip.
+	}
+
     cprintf("Backtrace success\n");
 	return 0;
 }
 
+static int runcmd(char *buf, struct Trapframe *tf);
+
+int
+mon_time(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc < 2) {
+		cprintf("No command specified\n");
+		return 0;
+	}
+
+	uint64_t start_time = read_tsc();
+	int ret = runcmd(argv[1], tf); // Does not support command parameters yet.
+	uint64_t end_time = read_tsc();
+	cprintf("%s cycles: %llu\n", argv[1], end_time - start_time);
+
+	return ret;
+}
 
 
 /***** Kernel monitor command interpreter *****/
