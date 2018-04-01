@@ -123,7 +123,7 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {
-	uint32_t cr0;
+	uint32_t cr0, cr4;
 	size_t n;
 
 	// Find out how much memory the machine has (npages & npages_basemem).
@@ -178,6 +178,8 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
+
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -190,6 +192,8 @@ mem_init(void)
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
 
+	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -199,8 +203,15 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
 
+	boot_map_region_large(kern_pgdir, KERNBASE, (size_t)(0 - KERNBASE), 0, PTE_W);
+
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
+
+	// Enable page size extension.
+	cr4 = rcr4();
+	cr4 |= CR4_PSE;
+	lcr4(cr4);
 
 	// Switch from the minimal entry page directory to the full kern_pgdir
 	// page table we just created.	Our instruction pointer should be
@@ -428,6 +439,19 @@ static void
 boot_map_region_large(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+
+	if (!pgdir)
+		panic("boot_map_region_large: null pointer 'pgdir'\n");
+
+	size = ROUNDUP(va + size, PTSIZE) - ROUNDDOWN(va, PTSIZE);
+	va = ROUNDDOWN(va, PTSIZE);
+	pa = ROUNDDOWN(pa, PTSIZE);
+	perm = PGOFF(perm);
+
+	size_t num_pages = size / PTSIZE;
+	size_t i;
+	for (i = 0; i < num_pages; ++i)
+		pgdir[PDX(va + i * PTSIZE)] = (pa + i * PTSIZE) | perm | PTE_P | PTE_PS;
 }
 
 //
