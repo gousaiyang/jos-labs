@@ -1,3 +1,4 @@
 obj
 .gdbinit
 jos.out
+*.tar.gz
