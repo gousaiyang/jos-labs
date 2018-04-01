@@ -306,6 +306,9 @@ page_free(struct Page *pp)
 {
 	// Fill this function in
 
+	if (!pp)
+		panic("page_free: null pointer 'pp'\n");
+
 	if (pp->pp_ref)
 		panic("page_free: trying to free a page in use\n");
 
@@ -344,14 +347,37 @@ page_decref(struct Page* pp)
 // and the page table, so it's safe to leave permissions in the page
 // more permissive than strictly necessary.
 //
-// Hint 3: look at inc/mmu.h for useful macros that mainipulate page
+// Hint 3: look at inc/mmu.h for useful macros that manipulate page
 // table and page directory entries.
 //
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+
+	if (!pgdir)
+		panic("pgdir_walk: null pointer 'pgdir'\n");
+
+	pde_t pde = pgdir[PDX(va)];
+
+	if (pde & PTE_P) {
+		pte_t *pgtbl = KADDR(PTE_ADDR(pde));
+		return &pgtbl[PTX(va)];
+	} else {
+		if (!create)
+			return NULL;
+
+		struct Page *pgtbl_pg = page_alloc(ALLOC_ZERO);
+		if (!pgtbl_pg)
+			return NULL;
+
+		pgtbl_pg->pp_ref++;
+
+		physaddr_t pgtbl_phyaddr = page2pa(pgtbl_pg);
+		pgdir[PDX(va)] = pgtbl_phyaddr | PTE_U | PTE_W | PTE_P;
+		pte_t *pgtbl = KADDR(pgtbl_phyaddr);
+		return &pgtbl[PTX(va)];
+	}
 }
 
 //
@@ -368,6 +394,24 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+
+	if (!pgdir)
+		panic("boot_map_region: null pointer 'pgdir'\n");
+
+	size = ROUNDUP(va + size, PGSIZE) - ROUNDDOWN(va, PGSIZE);
+	va = ROUNDDOWN(va, PGSIZE);
+	pa = ROUNDDOWN(pa, PGSIZE);
+	perm = PGOFF(perm);
+
+	size_t num_pages = size / PGSIZE;
+	size_t i;
+	for (i = 0; i < num_pages; ++i) {
+		pte_t *pte = pgdir_walk(pgdir, (void *)(va + i * PGSIZE), 1);
+		if (!pte)
+			panic("boot_map_region: no free pages available for page table\n");
+
+		*pte = (pa + i * PGSIZE) | perm | PTE_P;
+	}
 }
 
 //
@@ -414,6 +458,31 @@ int
 page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 {
 	// Fill this function in
+
+	if (!pgdir)
+		panic("page_insert: null pointer 'pgdir'\n");
+	if (!pp)
+		panic("page_insert: null pointer 'pp'\n");
+
+	va = ROUNDDOWN(va, PGSIZE);
+	perm = PGOFF(perm);
+
+	pte_t *pte = pgdir_walk(pgdir, va, 1);
+	if (!pte)
+		return -E_NO_MEM;
+
+	physaddr_t pa = page2pa(pp);
+	if (*pte & PTE_P) {
+		if (PTE_ADDR(*pte) == pa) {
+			*pte = pa | perm | PTE_P;
+			return 0;
+		}
+		page_remove(pgdir, va);
+	}
+
+	*pte = pa | perm | PTE_P;
+	pp->pp_ref++;
+
 	return 0;
 }
 
@@ -432,7 +501,18 @@ struct Page *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+
+	if (!pgdir)
+		panic("page_lookup: null pointer 'pgdir'\n");
+
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
+	if (!pte || !(*pte & PTE_P))
+		return NULL;
+
+	if (pte_store)
+		*pte_store = pte;
+
+	return pa2page(PTE_ADDR(*pte));
 }
 
 //
@@ -454,6 +534,18 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+
+	if (!pgdir)
+		panic("page_remove: null pointer 'pgdir'\n");
+
+	pte_t *pte;
+	struct Page *page = page_lookup(pgdir, va, &pte);
+	if (!page)
+		return;
+
+	page_decref(page);
+	*pte &= ~PTE_P;
+	tlb_invalidate(pgdir, va);
 }
 
 //
