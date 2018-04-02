@@ -391,6 +391,41 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	}
 }
 
+
+// Another version of pgdir_walk() to handle large pages.
+pte_t *
+pgdir_walk_large(pde_t *pgdir, const void *va, int create)
+{
+	// Fill this function in
+
+	if (!pgdir)
+		panic("pgdir_walk: null pointer 'pgdir'\n");
+
+	pde_t pde = pgdir[PDX(va)];
+
+	if (pde & PTE_P) {
+		if (pde & PTE_PS)
+			return &pgdir[PDX(va)];
+
+		pte_t *pgtbl = KADDR(PTE_ADDR(pde));
+		return &pgtbl[PTX(va)];
+	} else {
+		if (!create)
+			return NULL;
+
+		struct Page *pgtbl_pg = page_alloc(ALLOC_ZERO);
+		if (!pgtbl_pg)
+			return NULL;
+
+		pgtbl_pg->pp_ref++;
+
+		physaddr_t pgtbl_phyaddr = page2pa(pgtbl_pg);
+		pgdir[PDX(va)] = pgtbl_phyaddr | PTE_U | PTE_W | PTE_P;
+		pte_t *pgtbl = KADDR(pgtbl_phyaddr);
+		return &pgtbl[PTX(va)];
+	}
+}
+
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
 // in the page table rooted at pgdir.  Size is a multiple of PGSIZE.

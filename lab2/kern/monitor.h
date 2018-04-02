@@ -16,5 +16,13 @@ int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 int mon_time(int argc, char **argv, struct Trapframe *tf);
+int mon_vmmap(int argc, char **argv, struct Trapframe *tf);
+int mon_setpgperm(int argc, char **argv, struct Trapframe *tf);
+int mon_pgdir(int argc, char **argv, struct Trapframe *tf);
+int mon_cr(int argc, char **argv, struct Trapframe *tf);
+int mon_dumpv(int argc, char **argv, struct Trapframe *tf);
+int mon_dumpp(int argc, char **argv, struct Trapframe *tf);
+int mon_loadv(int argc, char **argv, struct Trapframe *tf);
+int mon_loadp(int argc, char **argv, struct Trapframe *tf);
 
 #endif	// !JOS_KERN_MONITOR_H
