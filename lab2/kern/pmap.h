@@ -60,7 +60,7 @@ void	page_remove(pde_t *pgdir, void *va);
 struct Page *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store);
 void	page_decref(struct Page *pp);
 
-pte_t * pgdir_walk_large(pde_t *pgdir, const void *va, int create);
+pte_t *pgdir_walk_large(pde_t *pgdir, const void *va, int create);
 
 void	tlb_invalidate(pde_t *pgdir, void *va);
 

@@ -13,7 +13,7 @@
 #include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
-#define MAX_HEX_LINE 20
+#define MAX_HEX_LINE 20 // Maximum hex bytes to display in a line.
 
 
 struct Command {
@@ -128,26 +128,7 @@ mon_time(int argc, char **argv, struct Trapframe *tf)
 	return ret;
 }
 
-static uintptr_t
-page_start(uintptr_t va)
-{
-	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
-	if (!pte || !(*pte & PTE_P))
-		return ROUNDDOWN(va, PGSIZE);
-
-	return ROUNDDOWN(va, *pte & PTE_PS ? PTSIZE : PGSIZE);
-}
-
-static uintptr_t
-page_end(uintptr_t va)
-{
-	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
-	if (!pte || !(*pte & PTE_P))
-		return ROUNDUP(va, PGSIZE);
-
-	return ROUNDUP(va, *pte & PTE_PS ? PTSIZE : PGSIZE);
-}
-
+// Check whether a virtual address has been mapped.
 static int
 va_mapped(uintptr_t va)
 {
@@ -155,16 +136,40 @@ va_mapped(uintptr_t va)
 	return pte && (*pte & PTE_P);
 }
 
+// Return start address of the virtual page containing va.
+static uintptr_t
+page_start(uintptr_t va)
+{
+	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
+	if (!pte || !(*pte & PTE_P)) // Mapping not present, regard as small page.
+		return ROUNDDOWN(va, PGSIZE);
+
+	return ROUNDDOWN(va, *pte & PTE_PS ? PTSIZE : PGSIZE);
+}
+
+// Return end address of the virtual page containing va.
+static uintptr_t
+page_end(uintptr_t va)
+{
+	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
+	if (!pte || !(*pte & PTE_P)) // Mapping not present, regard as small page.
+		return ROUNDUP(va, PGSIZE);
+
+	return ROUNDUP(va, *pte & PTE_PS ? PTSIZE : PGSIZE);
+}
+
+// Return size of the virtual page containing va.
 static size_t
 current_page_size(uintptr_t va)
 {
 	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
-	if (!pte || !(*pte & PTE_P))
+	if (!pte || !(*pte & PTE_P)) // Mapping not present, regard as small page.
 		return PGSIZE;
 
 	return *pte & PTE_PS ? PTSIZE : PGSIZE;
 }
 
+// Print mapping information of a virtual page starting at va.
 static void
 print_mapping(uintptr_t va)
 {
@@ -210,18 +215,22 @@ mon_vmmap(int argc, char **argv, struct Trapframe *tf)
 	} else if (argc == 2) {
 		va = (uintptr_t)strtol(argv[1], NULL, 0);
 		print_mapping(page_start(va));
-	} else if (argc == 3){
+	} else if (argc == 3) {
+		// Get input parameters.
 		vastart = (uintptr_t)strtol(argv[1], NULL, 0);
 		vaend = (uintptr_t)strtol(argv[2], NULL, 0);
 
+		// Check valid virtual address range.
 		if (vastart > vaend && vaend) {
 			cprintf("Invalid virtual address range\n");
 			return 0;
 		}
 
+		// Extend input range to page boundary.
 		vastart = page_start(vastart);
 		vaend = page_end(vaend);
 
+		// Print mapping information of pages in range.
 		va = vastart;
 		do {
 			print_mapping(va);
@@ -229,7 +238,7 @@ mon_vmmap(int argc, char **argv, struct Trapframe *tf)
 		} while (va < vaend || (!vaend && va));
 	} else {
 		cprintf("Usage: vmmap                    show all vmmaps\n");
-		cprintf("       vmmap [va]               show vmmap of page containing va\n");
+		cprintf("       vmmap [va]               show vmmap of virtual page containing va\n");
 		cprintf("       vmmap [vastart] [vaend]  show all vmmaps in range [vastart, vaend)\n");
 	}
 
@@ -242,17 +251,20 @@ mon_setpgperm(int argc, char **argv, struct Trapframe *tf)
 	if (argc == 3) {
 		uintptr_t va = (uintptr_t)strtol(argv[1], NULL, 0);
 
+		// Check valid virtual address mapping.
 		pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
 		if (!pte || !(*pte & PTE_P)) {
 			cprintf("Virtual address %08p is not mapped\n", va);
 			return 0;
 		}
 
+		// Check new perm.
 		if (strlen(argv[2]) != 1 || (argv[2][0] != 'u' && argv[2][0] != 's' && argv[2][0] != 'r' && argv[2][0] != 'w')) {
 			cprintf("Invalid perm, should be one of u/s/r/w\n");
 			return 0;
 		}
 
+		// Change perm.
 		switch (argv[2][0]) {
 			case 'u':
 				*pte |= PTE_U;
@@ -296,15 +308,18 @@ mon_dumpv(int argc, char **argv, struct Trapframe *tf)
 	int i;
 
 	if (argc == 3) {
+		// Get input parameters.
 		vastart = (uintptr_t)strtol(argv[1], NULL, 0);
 		length = (size_t)strtol(argv[2], NULL, 0);
 		vaend = vastart + length;
 
+		// Check valid virtual address range.
 		if (vastart > vaend && vaend) {
 			cprintf("Range overflow\n");
 			return 0;
 		}
 
+		// Check valid virtual address mapping.
 		vastart = page_start(vastart);
 		vaend = page_end(vaend);
 
@@ -317,6 +332,7 @@ mon_dumpv(int argc, char **argv, struct Trapframe *tf)
 			va += current_page_size(va);
 		} while (va < vaend || (!vaend && va));
 
+		// Print hex dump.
 		for (i = 0; i < length; ++i) {
 			cprintf("%02x ", *(unsigned char *)(vastart + i));
 			if ((i + 1) % MAX_HEX_LINE == 0)
@@ -336,14 +352,17 @@ int
 mon_dumpp(int argc, char **argv, struct Trapframe *tf)
 {
 	if (argc == 3) {
+		// Get input parameters.
 		physaddr_t pastart = (physaddr_t)strtol(argv[1], NULL, 0);
 		size_t length = (size_t)strtol(argv[2], NULL, 0);
 
+		// Check valid physical address range.
 		if (pastart >= npages * PGSIZE || pastart + length > npages * PGSIZE || pastart + length < pastart) {
 			cprintf("Range exceeds physical memory\n");
 			return 0;
 		}
 
+		// Print hex dump.
 		int i;
 		for (i = 0; i < length; ++i) {
 			cprintf("%02x ", *((unsigned char *)KADDR(pastart) + i));
@@ -364,14 +383,17 @@ int
 mon_loadv(int argc, char **argv, struct Trapframe *tf)
 {
 	if (argc == 3) {
+		// Get input parameters.
 		uintptr_t va = (uintptr_t)strtol(argv[1], NULL, 0);
 		unsigned char data = (unsigned char)strtol(argv[2], NULL, 0);
 
+		// Check valid virtual address mapping.
 		if (!va_mapped(va)) {
 			cprintf("Virtual address %08p is not mapped\n", va);
 			return 0;
 		}
 
+		// Modify byte data.
 		*(unsigned char *)va = data;
 	} else {
 		cprintf("Usage: loadv [va] [byte]\n");
@@ -384,14 +406,17 @@ int
 mon_loadp(int argc, char **argv, struct Trapframe *tf)
 {
 	if (argc == 3) {
+		// Get input parameters.
 		physaddr_t pa = (physaddr_t)strtol(argv[1], NULL, 0);
 		unsigned char data = (unsigned char)strtol(argv[2], NULL, 0);
 
+		// Check valid physical address.
 		if (pa >= npages * PGSIZE) {
 			cprintf("Address exceeds physical memory\n");
 			return 0;
 		}
 
+		// Modify byte data.
 		*(unsigned char *)KADDR(pa) = data;
 	} else {
 		cprintf("Usage: loadp [pa] [byte]\n");

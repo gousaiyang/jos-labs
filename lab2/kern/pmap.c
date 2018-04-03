@@ -279,6 +279,7 @@ page_init(void)
 			page_free_list = &pages[i];
 		}
 	}
+
 	chunk_list = NULL;
 }
 
@@ -444,6 +445,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	if (!pgdir)
 		panic("boot_map_region: null pointer 'pgdir'\n");
 
+	// Sanitize input parameters.
 	size = ROUNDUP(va + size, PGSIZE) - ROUNDDOWN(va, PGSIZE);
 	va = ROUNDDOWN(va, PGSIZE);
 	pa = ROUNDDOWN(pa, PGSIZE);
@@ -478,6 +480,7 @@ boot_map_region_large(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, in
 	if (!pgdir)
 		panic("boot_map_region_large: null pointer 'pgdir'\n");
 
+	// Sanitize input parameters.
 	size = ROUNDUP(va + size, PTSIZE) - ROUNDDOWN(va, PTSIZE);
 	va = ROUNDDOWN(va, PTSIZE);
 	pa = ROUNDDOWN(pa, PTSIZE);
@@ -523,6 +526,7 @@ page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 	if (!pp)
 		panic("page_insert: null pointer 'pp'\n");
 
+	// Sanitize input parameters.
 	va = ROUNDDOWN(va, PGSIZE);
 	perm = PGOFF(perm);
 
@@ -532,7 +536,7 @@ page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 
 	physaddr_t pa = page2pa(pp);
 	if (*pte & PTE_P) {
-		if (PTE_ADDR(*pte) == pa) {
+		if (PTE_ADDR(*pte) == pa) { // Same physical address, just change permissions.
 			*pte = pa | perm | PTE_P;
 			return 0;
 		}
