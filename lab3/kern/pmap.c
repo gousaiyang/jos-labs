@@ -680,25 +680,30 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	if (!env)
 		panic("user_mem_check: null pointer 'env'\n");
 
+	// Sanitize perm parameter.
 	perm = PGOFF(perm);
 
 	uintptr_t vanext;
 	uintptr_t offset = 0;
 
 	while (offset < len) {
+		// Address to check.
 		vanext = (uintptr_t)(va + offset);
 
+		// Check whether the address is in valid range.
 		if (vanext >= ULIM) {
 			user_mem_check_addr = vanext;
 			return -E_FAULT;
 		}
 
-		pte_t *pte = pgdir_walk(env->env_pgdir, (void *)(vanext), 0);
+		// Check whether the page is present and its permissions.
+		pte_t *pte = pgdir_walk(env->env_pgdir, (void *)vanext, 0);
 		if (!pte || (*pte & perm) != perm) {
 			user_mem_check_addr = vanext;
 			return -E_FAULT;
 		}
 
+		// Next page.
 		if (offset)
 			offset += PGSIZE;
 		else

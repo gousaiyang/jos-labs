@@ -86,6 +86,7 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 
+	// Initialize IDT with trap handler entry points.
 	SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_handler, 0);
 	SETGATE(idt[T_DEBUG], 1, GD_KT, debug_handler, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, nmi_handler, 0);
@@ -105,9 +106,10 @@ trap_init(void)
 	SETGATE(idt[T_MCHK], 1, GD_KT, mchk_handler, 0);
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, simderr_handler, 0);
 
-	wrmsr(0x174, GD_KT, 0);
-	wrmsr(0x175, KSTACKTOP, 0);
-	wrmsr(0x176, (uint32_t)sysenter_handler, 0);
+	// Setup MSRs.
+	wrmsr(0x174, GD_KT, 0); // SYSENTER_CS_MSR
+	wrmsr(0x175, KSTACKTOP, 0); // SYSENTER_ESP_MSR
+	wrmsr(0x176, (uint32_t)sysenter_handler, 0); // SYSENTER_EIP_MSR
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -257,7 +259,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 3: Your code here.
 
-	if ((tf->tf_cs & 0x3) == 0)
+	if (!(tf->tf_cs & 0x3))
 		panic("page fault happens in kernel mode");
 
 	// We've already handled kernel-mode exceptions, so if we get here,

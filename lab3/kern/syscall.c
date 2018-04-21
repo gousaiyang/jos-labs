@@ -21,6 +21,9 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+	if (!s)
+		panic("sys_cputs: null pointer 's'\n");
+
 	user_mem_assert(curenv, s, len, 0);
 
 	// Print the string supplied by the user.
@@ -79,14 +82,17 @@ sys_sbrk(uint32_t inc)
 {
 	// LAB3: your code sbrk here...
 
+	// Align inc to pages.
 	uint32_t inc_size = ROUNDUP(inc, PGSIZE);
 
+	// Prevent heap address range overflow to kernel.
 	if (curenv->env_break + inc_size > ULIM || curenv->env_break + inc_size < curenv->env_break) {
 		cprintf("[%08x] sbrk out of range", curenv->env_id);
 		env_destroy(curenv);
 		return -1;
 	}
 
+	// Allocate more space, increase brk pointer.
 	region_alloc(curenv, (void *)curenv->env_break, inc_size);
 	curenv->env_break += inc_size;
 	return curenv->env_break;

@@ -165,7 +165,6 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-	int i;
 	struct Page *p = NULL;
 
 	if (!e)
@@ -193,10 +192,10 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
 
-	p->pp_ref++;
-	e->env_pgdir = page2kva(p);
-	for (i = PDX(UTOP); i < NPDENTRIES; ++i)
-		e->env_pgdir[i] = kern_pgdir[i];
+	p->pp_ref++; // Increment refcnt.
+	e->env_pgdir = page2kva(p); // Set environment page directory.
+	memmove(e->env_pgdir + PDX(UTOP), kern_pgdir + PDX(UTOP),
+		sizeof(pde_t) * (NPDENTRIES - PDX(UTOP))); // Copy some entries from kern_pgdir.
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -294,15 +293,14 @@ region_alloc(struct Env *e, void *va, size_t len)
 	uintptr_t vaddr;
 
 	// Check valid virtual address range.
-	if (vastart > vaend && vaend) {
+	if (vastart > vaend && vaend)
 		panic("region_alloc: invalid virtual address range\n");
-		return;
-	}
 
+	// Allocate each page.
 	vaddr = vastart;
 	do {
-		struct Page* p = page_alloc(0);
-		if (!p)
+		struct Page* p;
+		if (!(p = page_alloc(0)))
 			panic("region_alloc: out of memory\n");
 
 		int r;
@@ -376,11 +374,12 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 
 	struct Elf* elf = (struct Elf*)binary;
 
+	// Check ELF magic.
 	if (elf->e_magic != ELF_MAGIC)
 		panic("load_icode: invalid ELF format\n");
 
+	// Load segments and set e->env_break properly (after all loaded segments).
 	e->env_break = UTEXT;
-
 	struct Proghdr *ph = (struct Proghdr *)(binary + elf->e_phoff);
 	struct Proghdr *eph = ph + elf->e_phnum;
 	for (; ph < eph; ph++) {
@@ -397,6 +396,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 		}
 	}
 
+	// Set eip in trapframe to ELF entry point.
 	e->env_tf.tf_eip = elf->e_entry;
 
 	// Now map one page for the program's initial stack
@@ -422,12 +422,16 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 	if (!binary)
 		panic("env_create: null pointer 'binary'\n");
 
+	// Allocate an environment.
 	struct Env *e;
+	int r;
+	if ((r = env_alloc(&e, 0)) < 0)
+		panic("env_create: %e\n", r);
 
-	if (env_alloc(&e, 0) < 0)
-		panic("env_create: cannot allocate env\n");
-
+	// Set environment type.
 	e->env_type = type;
+
+	// Load the program using the page directory of its environment.
 	lcr3(PADDR(e->env_pgdir));
 	load_icode(e, binary, size);
 	lcr3(PADDR(kern_pgdir));
@@ -550,7 +554,7 @@ env_run(struct Env *e)
 	if (!e)
 		panic("env_run: null pointer 'e'\n");
 
-	if (curenv != e) {
+	if (curenv != e) { // Context switch.
 		if (curenv && curenv->env_status == ENV_RUNNING)
 			curenv->env_status = ENV_RUNNABLE;
 
@@ -560,5 +564,6 @@ env_run(struct Env *e)
 		lcr3(PADDR(curenv->env_pgdir));
 	}
 
+	// Restore the environment's registers and drop into user mode.
 	env_pop_tf(&curenv->env_tf);
 }

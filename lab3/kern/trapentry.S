@@ -75,16 +75,20 @@ sysenter_handler:
  * Lab 3: Your code here for system call handling
  */
 
-pushl $0
-pushl %edi
-pushl %ebx
-pushl %ecx
-pushl %edx
-pushl %eax
-call syscall
-movl %ebp, %ecx
-movl %esi, %edx
-sysexit
+/* $0 is the fifth parameter of `syscall`.
+ * We should set %edx to returned pc (stored in %esi),
+ * and set %ecx to returned %esp (stored in %ebp) before `sysexit`.
+ */
+	pushl $0
+	pushl %edi
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+	pushl %eax
+	call syscall
+	movl %esi, %edx
+	movl %ebp, %ecx
+	sysexit
 
 
 /*

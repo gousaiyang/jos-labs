@@ -141,7 +141,7 @@ va_mapped(uintptr_t va)
 	return pte && (*pte & PTE_P);
 }
 
-// Check whether a virtual address has been mapped.
+// Check whether a virtual address has been mapped in the given page directory.
 static int
 va_mapped_user(uintptr_t va, pde_t* pgdir)
 {
@@ -440,7 +440,10 @@ mon_loadp(int argc, char **argv, struct Trapframe *tf)
 
 int mon_c(int argc, char **argv, struct Trapframe *tf)
 {
+	// Clear the trap flag.
 	tf->tf_eflags &= ~FL_TF;
+
+	// Quit monitor.
 	return -1;
 }
 
@@ -448,18 +451,22 @@ int mon_si(int argc, char **argv, struct Trapframe *tf)
 {
 	struct Eipdebuginfo info;
 
+	// Set the trap flag.
 	tf->tf_eflags |= FL_TF;
+
+	// Print eip and debug info.
 	cprintf("tf_eip=%08x\n", tf->tf_eip);
 	debuginfo_eip(tf->tf_eip, &info);
 	cprintf("%s:%d: %s+%d\n", info.eip_file, info.eip_line, info.eip_fn_name, tf->tf_eip - info.eip_fn_addr);
 
+	// Quit monitor.
 	return -1;
 }
 
 int mon_x(int argc, char **argv, struct Trapframe *tf)
 {
 	if (argc == 2) {
-		// Get input parameters.
+		// Get input parameter.
 		uintptr_t va = (uintptr_t)strtol(argv[1], NULL, 0);
 
 		// Check valid virtual address mapping.
@@ -468,7 +475,7 @@ int mon_x(int argc, char **argv, struct Trapframe *tf)
 			return 0;
 		}
 
-		// Print 4 bytes.
+		// Print 4 bytes of data.
 		cprintf("%d\n", *(uint32_t *)va);
 	} else {
 		cprintf("Usage: x [addr]\n");

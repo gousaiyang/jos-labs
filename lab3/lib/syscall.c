@@ -17,11 +17,12 @@ syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 		//Lab 3: Your code here
 
+		// Store return %esp to %ebp, store return pc to %esi
 		"pushl %%esp\n\t"
 		"popl %%ebp\n\t"
-		"leal after_sysenter_label%=, %%esi\n\t" // Unique label number
+		"leal after_sysenter_label%=, %%esi\n\t" // Use "%=" to generate a unique label number.
 		"sysenter\n\t"
-		"after_sysenter_label%=:\n\t" // Unique label number
+		"after_sysenter_label%=:\n\t"
 
 		"popl %%edi\n\t"
 		"popl %%esi\n\t"

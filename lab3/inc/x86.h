@@ -297,7 +297,7 @@ xchg(volatile uint32_t *addr, uint32_t newval)
 static __inline void
 wrmsr(uint32_t msr, uint32_t low, uint32_t high)
 {
-	__asm__ __volatile__("wrmsr"
+	__asm __volatile("wrmsr"
 		:
 		: "c" (msr), "a" (low), "d" (high));
 }
