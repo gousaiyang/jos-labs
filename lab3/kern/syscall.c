@@ -82,10 +82,10 @@ sys_sbrk(uint32_t inc)
 {
 	// LAB3: your code sbrk here...
 
-	// Align inc to pages.
+	// Align inc to whole pages.
 	uint32_t inc_size = ROUNDUP(inc, PGSIZE);
 
-	// Prevent heap address range overflow to kernel.
+	// Prevent heap address range from overflowing to kernel.
 	if (curenv->env_break + inc_size > ULIM || curenv->env_break + inc_size < curenv->env_break) {
 		cprintf("[%08x] sbrk out of range", curenv->env_id);
 		env_destroy(curenv);

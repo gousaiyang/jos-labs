@@ -76,8 +76,8 @@ sysenter_handler:
  */
 
 /* $0 is the fifth parameter of `syscall`.
- * We should set %edx to returned pc (stored in %esi),
- * and set %ecx to returned %esp (stored in %ebp) before `sysexit`.
+ * We should set %edx to return pc (stored in %esi),
+ * and set %ecx to return %esp (stored in %ebp) before `sysexit`.
  */
 	pushl $0
 	pushl %edi
