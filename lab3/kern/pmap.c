@@ -677,6 +677,34 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
 
+	if (!env)
+		panic("user_mem_check: null pointer 'env'\n");
+
+	perm = PGOFF(perm);
+
+	uintptr_t vanext;
+	uintptr_t offset = 0;
+
+	while (offset < len) {
+		vanext = (uintptr_t)(va + offset);
+
+		if (vanext >= ULIM) {
+			user_mem_check_addr = vanext;
+			return -E_FAULT;
+		}
+
+		pte_t *pte = pgdir_walk(env->env_pgdir, (void *)(vanext), 0);
+		if (!pte || (*pte & perm) != perm) {
+			user_mem_check_addr = vanext;
+			return -E_FAULT;
+		}
+
+		if (offset)
+			offset += PGSIZE;
+		else
+			offset += PGSIZE - (uintptr_t)va % PGSIZE;
+	}
+
 	return 0;
 }
 
@@ -873,8 +901,8 @@ check_kern_pgdir(void)
 
 		cprintf("large page installed!\n");
 	} else {
-	    for (i = 0; i < npages * PGSIZE; i += PGSIZE)
-		    assert(check_va2pa(pgdir, KERNBASE + i) == i);
+		for (i = 0; i < npages * PGSIZE; i += PGSIZE)
+			assert(check_va2pa(pgdir, KERNBASE + i) == i);
 	}
 
 

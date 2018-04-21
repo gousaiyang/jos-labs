@@ -275,7 +275,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 // Pages should be writable by user and kernel.
 // Panic if any allocation attempt fails.
 //
-static void
+void
 region_alloc(struct Env *e, void *va, size_t len)
 {
 	// LAB 3: Your code here.
@@ -379,12 +379,17 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	if (elf->e_magic != ELF_MAGIC)
 		panic("load_icode: invalid ELF format\n");
 
+	e->env_break = UTEXT;
+
 	struct Proghdr *ph = (struct Proghdr *)(binary + elf->e_phoff);
 	struct Proghdr *eph = ph + elf->e_phnum;
 	for (; ph < eph; ph++) {
 		if (ph->p_type == ELF_PROG_LOAD) {
 			if (ph->p_filesz > ph->p_memsz)
 				panic("load_icode: invalid size in ELF header\n");
+
+			if (ph->p_va + ph->p_memsz > e->env_break)
+				e->env_break = ROUNDUP(ph->p_va + ph->p_memsz, PGSIZE);
 
 			region_alloc(e, (void *)ph->p_va, ph->p_memsz);
 			memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);

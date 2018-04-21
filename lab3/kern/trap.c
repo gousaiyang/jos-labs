@@ -77,13 +77,14 @@ void align_handler();
 void mchk_handler();
 void simderr_handler();
 
+void sysenter_handler();
+
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
-
 
 	SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_handler, 0);
 	SETGATE(idt[T_DEBUG], 1, GD_KT, debug_handler, 0);
@@ -103,6 +104,10 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 1, GD_KT, align_handler, 0);
 	SETGATE(idt[T_MCHK], 1, GD_KT, mchk_handler, 0);
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, simderr_handler, 0);
+
+	wrmsr(0x174, GD_KT, 0);
+	wrmsr(0x175, KSTACKTOP, 0);
+	wrmsr(0x176, (uint32_t)sysenter_handler, 0);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -182,6 +187,16 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
 
+	switch (tf->tf_trapno) {
+		case T_DEBUG:
+		case T_BRKPT:
+			monitor(tf);
+			return;
+		case T_PGFLT:
+			page_fault_handler(tf);
+			return;
+	}
+
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
@@ -241,6 +256,9 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+
+	if ((tf->tf_cs & 0x3) == 0)
+		panic("page fault happens in kernel mode");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.

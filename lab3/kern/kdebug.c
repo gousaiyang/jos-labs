@@ -61,10 +61,10 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 	       int type, uintptr_t addr)
 {
 	int l = *region_left, r = *region_right, any_matches = 0;
-	
+
 	while (l <= r) {
 		int true_m = (l + r) / 2, m = true_m;
-		
+
 		// search for earliest stab with right type
 		while (m >= l && stabs[m].n_type != type)
 			m--;
@@ -143,6 +143,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// Return -1 if it is not.  Hint: Call user_mem_check.
 		// LAB 3: Your code here.
 
+		if (user_mem_check(curenv, usd, sizeof(struct UserStabData), 0) < 0)
+			return -1;
+
 		stabs = usd->stabs;
 		stab_end = usd->stab_end;
 		stabstr = usd->stabstr;
@@ -150,6 +153,12 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
 		// Make sure the STABS and string table memory is valid.
 		// LAB 3: Your code here.
+
+		if (user_mem_check(curenv, stabs, (char *)stab_end - (char *)stabs, 0) < 0)
+			return -1;
+
+		if (user_mem_check(curenv, stabstr, stabstr_end - stabstr, 0) < 0)
+			return -1;
 	}
 
 	// String table validity checks
@@ -160,7 +169,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// 'eip'.  First, we find the basic source file containing 'eip'.
 	// Then, we look in that source file for the function.  Then we look
 	// for the line number.
-	
+
 	// Search the entire set of stabs for the source file (type N_SO).
 	lfile = 0;
 	rfile = (stab_end - stabs) - 1;
@@ -194,7 +203,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// Ignore stuff after the colon.
 	info->eip_fn_namelen = strfind(info->eip_fn_name, ':') - info->eip_fn_name;
 
-	
+
 	// Search within [lline, rline] for the line number stab.
 	// If found, set info->eip_line to the right line number.
 	// If not found, return -1.
@@ -230,6 +239,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		     lline < rfun && stabs[lline].n_type == N_PSYM;
 		     lline++)
 			info->eip_fn_narg++;
-	
+
 	return 0;
 }

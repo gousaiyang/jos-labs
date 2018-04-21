@@ -12,6 +12,7 @@
 #include <kern/kdebug.h>
 #include <kern/trap.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 #define MAX_HEX_LINE 20 // Maximum hex bytes to display in a line.
@@ -37,6 +38,9 @@ static struct Command commands[] = {
 	{ "dumpp", "Dump data at given physical memory", mon_dumpp},
 	{ "loadv", "Modify a byte at given virtual memory", mon_loadv},
 	{ "loadp", "Modify a byte at given physical memory", mon_loadp},
+	{ "c", "Continue execution from the current location", mon_c},
+	{ "si", "Execute code instruction by instruction", mon_si},
+	{ "x", "Display consequent 4-byte data at given virtual memory", mon_x},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -73,9 +77,9 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 // read the pointer to the retaddr on the stack
 static uint32_t
 read_pretaddr() {
-    uint32_t pretaddr;
-    __asm __volatile("leal 4(%%ebp), %0" : "=r" (pretaddr));
-    return pretaddr;
+	uint32_t pretaddr;
+	__asm __volatile("leal 4(%%ebp), %0" : "=r" (pretaddr));
+	return pretaddr;
 }
 
 int
@@ -96,7 +100,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		eip = ebp[1]; // Upper level eip.
 	}
 
-    cprintf("Backtrace success\n");
+	cprintf("Backtrace success\n");
 	return 0;
 }
 
@@ -134,6 +138,14 @@ static int
 va_mapped(uintptr_t va)
 {
 	pte_t *pte = pgdir_walk_large(kern_pgdir, (void *)va, 0);
+	return pte && (*pte & PTE_P);
+}
+
+// Check whether a virtual address has been mapped.
+static int
+va_mapped_user(uintptr_t va, pde_t* pgdir)
+{
+	pte_t *pte = pgdir_walk_large(pgdir, (void *)va, 0);
 	return pte && (*pte & PTE_P);
 }
 
@@ -426,6 +438,44 @@ mon_loadp(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int mon_c(int argc, char **argv, struct Trapframe *tf)
+{
+	tf->tf_eflags &= ~FL_TF;
+	return -1;
+}
+
+int mon_si(int argc, char **argv, struct Trapframe *tf)
+{
+	struct Eipdebuginfo info;
+
+	tf->tf_eflags |= FL_TF;
+	cprintf("tf_eip=%08x\n", tf->tf_eip);
+	debuginfo_eip(tf->tf_eip, &info);
+	cprintf("%s:%d: %s+%d\n", info.eip_file, info.eip_line, info.eip_fn_name, tf->tf_eip - info.eip_fn_addr);
+
+	return -1;
+}
+
+int mon_x(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc == 2) {
+		// Get input parameters.
+		uintptr_t va = (uintptr_t)strtol(argv[1], NULL, 0);
+
+		// Check valid virtual address mapping.
+		if (!va_mapped_user(va, curenv->env_pgdir)) {
+			cprintf("Virtual address %08p is not mapped\n", va);
+			return 0;
+		}
+
+		// Print 4 bytes.
+		cprintf("%d\n", *(uint32_t *)va);
+	} else {
+		cprintf("Usage: x [addr]\n");
+	}
+
+	return 0;
+}
 
 
 /***** Kernel monitor command interpreter *****/
