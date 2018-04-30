@@ -68,7 +68,10 @@ struct Env {
 	int env_ipc_perm;		// Perm of page mapping received
 
 	// LAB3: might need code here for implementation of sbrk
+	uintptr_t env_break;	// brk pointer of the environment
 
 };
+
+void region_alloc(struct Env *e, void *va, size_t len);
 
 #endif // !JOS_INC_ENV_H
