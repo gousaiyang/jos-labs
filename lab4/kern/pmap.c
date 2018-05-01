@@ -222,8 +222,8 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-	
-	boot_map_region_large(kern_pgdir, KERNBASE, (size_t)(0 - KERNBASE), 0, PTE_W);
+
+	boot_map_region(kern_pgdir, KERNBASE, (size_t)(0 - KERNBASE), 0, PTE_W); // Use small pages to avoid trouble.
 
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
@@ -287,6 +287,10 @@ mem_init_mp(void)
 	//
 	// LAB 4: Your code here:
 
+	int i;
+	for (i = 0; i < NCPU; ++i)
+		boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE, KSTKSIZE,
+			PADDR(percpu_kstacks[i]), PTE_W);
 }
 
 // --------------------------------------------------------------
@@ -331,7 +335,7 @@ page_init(void)
 
 	size_t i;
 	for (i = 0; i < npages; i++) {
-		if ((i > 0 && i < npages_basemem) || i >= nextfree_page) {
+		if ((i > 0 && i < npages_basemem && i != PGNUM(MPENTRY_PADDR)) || i >= nextfree_page) {
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
@@ -955,7 +959,7 @@ check_kern_pgdir(void)
 
 
 
-	
+
 	// check IO mem (new in lab 4)
 	for (i = IOMEMBASE; i < -PGSIZE; i += PGSIZE)
 		assert(check_va2pa(pgdir, i) == i);
@@ -1168,11 +1172,11 @@ check_page(void)
 static int
 check_continuous(struct Page *pp, int num_page)
 {
-	struct Page *tmp; 
+	struct Page *tmp;
 	int i;
 	for( tmp = pp, i = 0; i < num_page - 1; tmp = tmp->pp_link, i++ )
 	{
-		if(tmp == NULL) 
+		if(tmp == NULL)
 		{
 			return 0;
 		}

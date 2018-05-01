@@ -66,6 +66,7 @@ TRAPHANDLER_NOEC(fperr_handler, T_FPERR)
 TRAPHANDLER_NOEC(align_handler, T_ALIGN)
 TRAPHANDLER_NOEC(mchk_handler, T_MCHK)
 TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR)
+TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL)
 
 
 .globl sysenter_handler;
@@ -76,17 +77,28 @@ sysenter_handler:
  * Lab 3: Your code here for system call handling
  */
 
-/* $0 is the fifth parameter of `syscall`.
+/* First, push the trapframe.
  * We should set %edx to return pc (stored in %esi),
  * and set %ecx to return %esp (stored in %ebp) before `sysexit`.
  */
+	pushl $GD_UD | 3
+	pushl %ebp
+	pushfl
+	pushl $GD_UT | 3
+	pushl %esi
 	pushl $0
+	pushl $T_SYSCALL
+	pushl %ds
+	pushl %es
+	pushal
+	pushl %esp
+	pushl 0x4(%ebp)
 	pushl %edi
 	pushl %ebx
 	pushl %ecx
 	pushl %edx
 	pushl %eax
-	call syscall
+	call sysenter
 	movl %esi, %edx
 	movl %ebp, %ecx
 	sysexit

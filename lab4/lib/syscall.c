@@ -37,7 +37,8 @@ syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		  "d" (a1),
 		  "c" (a2),
 		  "b" (a3),
-		  "D" (a4)
+		  "D" (a4),
+		  "S" (a5) // The 5th parameter.
 		: "cc", "memory");
 
 	if(check && ret > 0)
@@ -131,4 +132,3 @@ sys_sbrk(uint32_t inc)
 {
 	 return syscall(SYS_sbrk, 0, (uint32_t)inc, (uint32_t)0, 0, 0, 0);
 }
-

@@ -591,5 +591,6 @@ env_run(struct Env *e)
 	}
 
 	// Restore the environment's registers and drop into user mode.
+	unlock_kernel();
 	env_pop_tf(&curenv->env_tf);
 }
