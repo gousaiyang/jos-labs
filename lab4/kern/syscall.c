@@ -109,6 +109,7 @@ sys_exofork(void)
 
 	newenv->env_status = ENV_NOT_RUNNABLE;
 	newenv->env_tf = curenv->env_tf;
+	newenv->env_break = curenv->env_break;
 	newenv->env_tf.tf_regs.reg_eax = 0;
 
 	return newenv->env_id;
@@ -461,6 +462,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_page_unmap:
 			ret = sys_page_unmap(a1, (void *)a2);
+			break;
+		case SYS_env_set_pgfault_upcall:
+			ret = sys_env_set_pgfault_upcall(a1, (void *)a2);
 			break;
 		default:
 			ret = -E_INVAL;
