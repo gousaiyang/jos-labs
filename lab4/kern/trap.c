@@ -87,6 +87,25 @@ void syscall_handler();
 
 void sysenter_handler();
 
+void irq0_handler();
+void irq1_handler();
+void irq2_handler();
+void irq3_handler();
+void irq4_handler();
+void irq5_handler();
+void irq6_handler();
+void irq7_handler();
+void irq8_handler();
+void irq9_handler();
+void irq10_handler();
+void irq11_handler();
+void irq12_handler();
+void irq13_handler();
+void irq14_handler();
+void irq15_handler();
+void irqerror_handler();
+
+
 void
 trap_init(void)
 {
@@ -95,25 +114,44 @@ trap_init(void)
 	// LAB 3: Your code here.
 
 	// Initialize IDT with trap handler entry points.
-	SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_handler, 0);
-	SETGATE(idt[T_DEBUG], 1, GD_KT, debug_handler, 0);
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, divide_handler, 0);
+	SETGATE(idt[T_DEBUG], 0, GD_KT, debug_handler, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, nmi_handler, 0);
-	SETGATE(idt[T_BRKPT], 1, GD_KT, brkpt_handler, 3);
-	SETGATE(idt[T_OFLOW], 1, GD_KT, oflow_handler, 0);
-	SETGATE(idt[T_BOUND], 1, GD_KT, bound_handler, 0);
-	SETGATE(idt[T_ILLOP], 1, GD_KT, illop_handler, 0);
-	SETGATE(idt[T_DEVICE], 1, GD_KT, device_handler, 0);
-	SETGATE(idt[T_DBLFLT], 1, GD_KT, dblflt_handler, 0);
-	SETGATE(idt[T_TSS], 1, GD_KT, tss_handler, 0);
-	SETGATE(idt[T_SEGNP], 1, GD_KT, segnp_handler, 0);
-	SETGATE(idt[T_STACK], 1, GD_KT, stack_handler, 0);
-	SETGATE(idt[T_GPFLT], 1, GD_KT, gpflt_handler, 0);
-	SETGATE(idt[T_PGFLT], 1, GD_KT, pgflt_handler, 0);
-	SETGATE(idt[T_FPERR], 1, GD_KT, fperr_handler, 0);
-	SETGATE(idt[T_ALIGN], 1, GD_KT, align_handler, 0);
-	SETGATE(idt[T_MCHK], 1, GD_KT, mchk_handler, 0);
-	SETGATE(idt[T_SIMDERR], 1, GD_KT, simderr_handler, 0);
-	SETGATE(idt[T_SYSCALL], 1, GD_KT, syscall_handler, 3);
+	SETGATE(idt[T_BRKPT], 0, GD_KT, brkpt_handler, 3);
+	SETGATE(idt[T_OFLOW], 0, GD_KT, oflow_handler, 0);
+	SETGATE(idt[T_BOUND], 0, GD_KT, bound_handler, 0);
+	SETGATE(idt[T_ILLOP], 0, GD_KT, illop_handler, 0);
+	SETGATE(idt[T_DEVICE], 0, GD_KT, device_handler, 0);
+	SETGATE(idt[T_DBLFLT], 0, GD_KT, dblflt_handler, 0);
+	SETGATE(idt[T_TSS], 0, GD_KT, tss_handler, 0);
+	SETGATE(idt[T_SEGNP], 0, GD_KT, segnp_handler, 0);
+	SETGATE(idt[T_STACK], 0, GD_KT, stack_handler, 0);
+	SETGATE(idt[T_GPFLT], 0, GD_KT, gpflt_handler, 0);
+	SETGATE(idt[T_PGFLT], 0, GD_KT, pgflt_handler, 0);
+	SETGATE(idt[T_FPERR], 0, GD_KT, fperr_handler, 0);
+	SETGATE(idt[T_ALIGN], 0, GD_KT, align_handler, 0);
+	SETGATE(idt[T_MCHK], 0, GD_KT, mchk_handler, 0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, simderr_handler, 0);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_handler, 3);
+
+	// Initialize IDT with interrupt entry points.
+	SETGATE(idt[IRQ_OFFSET], 0, GD_KT, irq0_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 1], 0, GD_KT, irq1_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, irq2_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, irq3_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 4], 0, GD_KT, irq4_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, irq5_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, irq6_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 7], 0, GD_KT, irq7_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, irq8_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, irq9_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, irq10_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, irq11_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, irq12_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, irq13_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, irq14_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, irq15_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_ERROR], 0, GD_KT, irqerror_handler, 0);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -234,6 +272,10 @@ trap_dispatch(struct Trapframe *tf)
 		case T_SYSCALL:
 			tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
 				tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+			return;
+		case IRQ_OFFSET + IRQ_TIMER:
+			lapic_eoi();
+			sched_yield();
 			return;
 	}
 

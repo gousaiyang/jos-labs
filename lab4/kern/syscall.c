@@ -256,7 +256,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	int r;
 	struct Env *srcenv, *dstenv;
 	struct Page *page;
-	pte_t *src_pte;
+	pte_t *srcpte;
 
 	if ((r = envid2env(srcenvid, &srcenv, 1)) < 0)
 		return r;
@@ -270,13 +270,13 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	if ((uintptr_t)dstva >= UTOP || (uintptr_t)dstva % PGSIZE)
 		return -E_INVAL;
 
-	if (!(page = page_lookup(srcenv->env_pgdir, srcva, &src_pte)))
+	if (!(page = page_lookup(srcenv->env_pgdir, srcva, &srcpte)))
 		return -E_INVAL;
 
 	if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
 		return -E_INVAL;
 
-	if ((perm & PTE_W) && !(*src_pte & PTE_W))
+	if ((perm & PTE_W) && !(*srcpte & PTE_W))
 		return -E_INVAL;
 
 	if ((r = page_insert(dstenv->env_pgdir, page, dstva, perm)) < 0)
@@ -358,7 +358,45 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+
+	int r;
+	struct Env *env;
+	struct Page *page;
+	pte_t *srcpte;
+
+	if ((r = envid2env(envid, &env, 0)) < 0)
+		return r;
+
+	if (!env->env_ipc_recving)
+		return -E_IPC_NOT_RECV;
+
+	env->env_ipc_perm = 0;
+
+	if ((uintptr_t)srcva < UTOP && (uintptr_t)env->env_ipc_dstva < UTOP) {
+		if ((uintptr_t)srcva % PGSIZE)
+			return -E_INVAL;
+
+		if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
+			return -E_INVAL;
+
+		if (!(page = page_lookup(curenv->env_pgdir, srcva, &srcpte)))
+			return -E_INVAL;
+
+		if ((perm & PTE_W) && !(*srcpte & PTE_W))
+			return -E_INVAL;
+
+		if ((r = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm)) < 0)
+			return r;
+
+		env->env_ipc_perm = perm;
+	}
+
+	env->env_ipc_recving = 0;
+	env->env_ipc_from = curenv->env_id;
+	env->env_ipc_value = value;
+	env->env_status = ENV_RUNNABLE;
+	env->env_tf.tf_regs.reg_eax = 0;
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -376,7 +414,17 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+
+	if ((uintptr_t)dstva < UTOP) {
+		if ((uintptr_t)dstva % PGSIZE)
+			return -E_INVAL;
+
+		curenv->env_ipc_dstva = dstva;
+	}
+
+	curenv->env_ipc_recving = 1;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
 	return 0;
 }
 
@@ -465,6 +513,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_env_set_pgfault_upcall:
 			ret = sys_env_set_pgfault_upcall(a1, (void *)a2);
+			break;
+		case SYS_ipc_try_send:
+			ret = sys_ipc_try_send(a1, a2, (void *)a3, a4);
+			break;
+		case SYS_ipc_recv:
+			ret = sys_ipc_recv((void *)a1);
 			break;
 		default:
 			ret = -E_INVAL;

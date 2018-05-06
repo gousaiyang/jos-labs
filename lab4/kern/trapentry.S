@@ -68,6 +68,24 @@ TRAPHANDLER_NOEC(mchk_handler, T_MCHK)
 TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR)
 TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL)
 
+TRAPHANDLER_NOEC(irq0_handler, IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq1_handler, IRQ_OFFSET + 1)
+TRAPHANDLER_NOEC(irq2_handler, IRQ_OFFSET + 2)
+TRAPHANDLER_NOEC(irq3_handler, IRQ_OFFSET + 3)
+TRAPHANDLER_NOEC(irq4_handler, IRQ_OFFSET + 4)
+TRAPHANDLER_NOEC(irq5_handler, IRQ_OFFSET + 5)
+TRAPHANDLER_NOEC(irq6_handler, IRQ_OFFSET + 6)
+TRAPHANDLER_NOEC(irq7_handler, IRQ_OFFSET + 7)
+TRAPHANDLER_NOEC(irq8_handler, IRQ_OFFSET + 8)
+TRAPHANDLER_NOEC(irq9_handler, IRQ_OFFSET + 9)
+TRAPHANDLER_NOEC(irq10_handler, IRQ_OFFSET + 10)
+TRAPHANDLER_NOEC(irq11_handler, IRQ_OFFSET + 11)
+TRAPHANDLER_NOEC(irq12_handler, IRQ_OFFSET + 12)
+TRAPHANDLER_NOEC(irq13_handler, IRQ_OFFSET + 13)
+TRAPHANDLER_NOEC(irq14_handler, IRQ_OFFSET + 14)
+TRAPHANDLER_NOEC(irq15_handler, IRQ_OFFSET + 15)
+TRAPHANDLER_NOEC(irqerror_handler, IRQ_OFFSET + IRQ_ERROR)
+
 
 .globl sysenter_handler;
 .type sysenter_handler, @function;
@@ -79,7 +97,8 @@ sysenter_handler:
 
 /* First, push the trapframe.
  * We should set %edx to return pc (stored in %esi),
- * and set %ecx to return %esp (stored in %ebp) before `sysexit`.
+ * set %ecx to return %esp (stored in %ebp),
+ * and enable interrupt before `sysexit`.
  */
 	pushl $GD_UD | 3
 	pushl %ebp
@@ -101,6 +120,7 @@ sysenter_handler:
 	call sysenter
 	movl %esi, %edx
 	movl %ebp, %ecx
+	sti
 	sysexit
 
 
