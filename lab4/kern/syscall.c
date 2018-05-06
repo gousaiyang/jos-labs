@@ -109,7 +109,7 @@ sys_exofork(void)
 
 	newenv->env_status = ENV_NOT_RUNNABLE;
 	newenv->env_tf = curenv->env_tf;
-	newenv->env_break = curenv->env_break;
+	newenv->env_break = curenv->env_break; // Also copy the brk pointer.
 	newenv->env_tf.tf_regs.reg_eax = 0;
 
 	return newenv->env_id;
@@ -354,6 +354,10 @@ sys_page_unmap(envid_t envid, void *va)
 //		current environment's address space.
 //	-E_NO_MEM if there's not enough memory to map srcva in envid's
 //		address space.
+//
+// NOTE: The comments above apply to the original version of `sys_ipc_try_send()`,
+// while the code below is the new version for the challenge problem.
+// For more information, please refer to the document.
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
@@ -396,17 +400,17 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		}
 	}
 
-	if (env->env_ipc_recving) {
+	if (env->env_ipc_recving) { // The receiver is ready.
 		env->env_ipc_recving = 0;
 		env->env_ipc_from = curenv->env_id;
 		env->env_ipc_value = value;
-		env->env_status = ENV_RUNNABLE;
-		env->env_tf.tf_regs.reg_eax = 0;
-	} else {
+		env->env_status = ENV_RUNNABLE; // Wake up the receiver.
+		env->env_tf.tf_regs.reg_eax = 0; // Make the receiver's `sys_ipc_recv()` return 0.
+	} else { // The receiver is not ready.
 		curenv->env_ipc_pending_envid = envid;
 		curenv->env_ipc_pending_value = value;
 		curenv->env_status = ENV_NOT_RUNNABLE;
-		sched_yield();
+		sched_yield(); // Sleep until the receiver is ready to receive my message.
 	}
 
 	return 0;
@@ -423,6 +427,10 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 // return 0 on success.
 // Return < 0 on error.  Errors are:
 //	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
+//
+// NOTE: The comments above apply to the original version of `sys_ipc_recv()`,
+// while the code below is the new version for the challenge problem.
+// For more information, please refer to the document.
 static int
 sys_ipc_recv(void *dstva)
 {
@@ -441,10 +449,10 @@ sys_ipc_recv(void *dstva)
 
 	for (i = 0; i < NENV; ++i) {
 		env = &envs[i];
-		if (env->env_status != ENV_FREE && env->env_ipc_pending_envid == curenv->env_id) {
+		if (env->env_status != ENV_FREE && env->env_ipc_pending_envid == curenv->env_id) { // Someone sent a message to me!
 			curenv->env_ipc_perm = 0;
 
-			if (env->env_ipc_pending_page && (uintptr_t)dstva < UTOP) {
+			if (env->env_ipc_pending_page && (uintptr_t)dstva < UTOP) { // The sender is passing a page, and I'm glad to accept.
 				if ((r = page_insert(curenv->env_pgdir, env->env_ipc_pending_page, dstva, env->env_ipc_pending_perm)) < 0)
 					return r;
 
@@ -454,15 +462,17 @@ sys_ipc_recv(void *dstva)
 			curenv->env_ipc_value = env->env_ipc_pending_value;
 			curenv->env_ipc_from = env->env_id;
 			env->env_ipc_pending_envid = 0;
-			env->env_status = ENV_RUNNABLE;
-			env->env_tf.tf_regs.reg_eax = 0;
+			env->env_status = ENV_RUNNABLE; // Wake up the sender.
+			env->env_tf.tf_regs.reg_eax = 0; // Make the sender's `sys_ipc_try_send()` return 0.
 			return 0;
 		}
 	}
 
+	// No one has sent a message to me yet.
+
 	curenv->env_ipc_recving = 1;
 	curenv->env_status = ENV_NOT_RUNNABLE;
-	sched_yield();
+	sched_yield(); // Sleep until someone sends me a message.
 	return 0;
 }
 

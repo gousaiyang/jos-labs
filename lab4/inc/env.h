@@ -66,10 +66,10 @@ struct Env {
 	uint32_t env_ipc_value;		// Data value sent to us
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
-	envid_t env_ipc_pending_envid;	// dst envid of the pending message to send of this env (0 -> none)
-	uint32_t env_ipc_pending_value;	// value of the pending message to send of this env
-	struct Page *env_ipc_pending_page;	// page of the pending message to send of this env
-	int env_ipc_pending_perm;	// perm of the pending message to send of this env
+	envid_t env_ipc_pending_envid;	// dst envid of the pending message to send of this env (0 -> none) (for challenge)
+	uint32_t env_ipc_pending_value;	// value of the pending message to send of this env (for challenge)
+	struct Page *env_ipc_pending_page;	// page of the pending message to send of this env (for challenge)
+	int env_ipc_pending_perm;	// perm of the pending message to send of this env (for challenge)
 
 	// LAB3: might need code here for implementation of sbrk
 	uintptr_t env_break;	// brk pointer of the environment

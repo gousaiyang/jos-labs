@@ -95,10 +95,9 @@ sysenter_handler:
  * Lab 3: Your code here for system call handling
  */
 
-/* First, push the trapframe.
- * We should set %edx to return pc (stored in %esi),
- * set %ecx to return %esp (stored in %ebp),
- * and enable interrupt before `sysexit`.
+/* Push the trapframe before pushing arguments of `sysenter()`.
+ * After the system call, we should set %edx to return pc (stored in %esi),
+ * set %ecx to return %esp (stored in %ebp), and enable interrupt before `sysexit`.
  */
 	pushl $GD_UD | 3
 	pushl %ebp

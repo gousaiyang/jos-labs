@@ -43,6 +43,10 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 //   Use sys_yield() to be CPU-friendly.
 //   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
 //   as meaning "no page".  (Zero is not the right value.)
+//
+// NOTE: The comments above apply to the original version of `ipc_send()`,
+// while the code below is the new version for the challenge problem.
+// With the new implementation of `sys_ipc_try_send()`, we no longer need to loop.
 void
 ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {

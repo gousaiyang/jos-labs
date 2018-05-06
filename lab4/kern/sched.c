@@ -31,9 +31,10 @@ sched_yield(void)
 	// LAB 4: Your code here.
 
 	for (i = 0; i < NENV; i++) {
+		// Start from next envid.
 		env_tmp = &envs[(ENVX(curenv ? curenv->env_id : 0) + i + 1) % NENV];
 
-		if (env_tmp->env_status == ENV_RUNNABLE	&& env_tmp->env_type != ENV_TYPE_IDLE)
+		if (env_tmp->env_status == ENV_RUNNABLE && env_tmp->env_type != ENV_TYPE_IDLE)
 			env_run(env_tmp);
 	}
 
