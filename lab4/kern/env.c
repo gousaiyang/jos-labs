@@ -269,8 +269,9 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
-	// Also clear the IPC receiving flag.
+	// Also clear the IPC receiving flag and the pending dst envid.
 	e->env_ipc_recving = 0;
+	e->env_ipc_pending_envid = 0;
 
 	// commit the allocation
 	env_free_list = e->env_link;

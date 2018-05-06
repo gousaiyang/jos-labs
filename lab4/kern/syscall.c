@@ -367,12 +367,12 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	if ((r = envid2env(envid, &env, 0)) < 0)
 		return r;
 
-	if (!env->env_ipc_recving)
-		return -E_IPC_NOT_RECV;
+	if (env->env_ipc_recving)
+		env->env_ipc_perm = 0;
+	else
+		curenv->env_ipc_pending_page = NULL;
 
-	env->env_ipc_perm = 0;
-
-	if ((uintptr_t)srcva < UTOP && (uintptr_t)env->env_ipc_dstva < UTOP) {
+	if ((uintptr_t)srcva < UTOP && ((uintptr_t)env->env_ipc_dstva < UTOP || !env->env_ipc_recving)) {
 		if ((uintptr_t)srcva % PGSIZE)
 			return -E_INVAL;
 
@@ -385,17 +385,30 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		if ((perm & PTE_W) && !(*srcpte & PTE_W))
 			return -E_INVAL;
 
-		if ((r = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm)) < 0)
-			return r;
+		if (env->env_ipc_recving) {
+			if ((r = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm)) < 0)
+				return r;
 
-		env->env_ipc_perm = perm;
+			env->env_ipc_perm = perm;
+		} else {
+			curenv->env_ipc_pending_page = page;
+			curenv->env_ipc_pending_perm = perm;
+		}
 	}
 
-	env->env_ipc_recving = 0;
-	env->env_ipc_from = curenv->env_id;
-	env->env_ipc_value = value;
-	env->env_status = ENV_RUNNABLE;
-	env->env_tf.tf_regs.reg_eax = 0;
+	if (env->env_ipc_recving) {
+		env->env_ipc_recving = 0;
+		env->env_ipc_from = curenv->env_id;
+		env->env_ipc_value = value;
+		env->env_status = ENV_RUNNABLE;
+		env->env_tf.tf_regs.reg_eax = 0;
+	} else {
+		curenv->env_ipc_pending_envid = envid;
+		curenv->env_ipc_pending_value = value;
+		curenv->env_status = ENV_NOT_RUNNABLE;
+		sched_yield();
+	}
+
 	return 0;
 }
 
@@ -415,11 +428,36 @@ sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
 
+	int i;
+	int r;
+	struct Env *env;
+
 	if ((uintptr_t)dstva < UTOP) {
 		if ((uintptr_t)dstva % PGSIZE)
 			return -E_INVAL;
 
 		curenv->env_ipc_dstva = dstva;
+	}
+
+	for (i = 0; i < NENV; ++i) {
+		env = &envs[i];
+		if (env->env_status != ENV_FREE && env->env_ipc_pending_envid == curenv->env_id) {
+			curenv->env_ipc_perm = 0;
+
+			if (env->env_ipc_pending_page && (uintptr_t)dstva < UTOP) {
+				if ((r = page_insert(curenv->env_pgdir, env->env_ipc_pending_page, dstva, env->env_ipc_pending_perm)) < 0)
+					return r;
+
+				curenv->env_ipc_perm = env->env_ipc_pending_perm;
+			}
+
+			curenv->env_ipc_value = env->env_ipc_pending_value;
+			curenv->env_ipc_from = env->env_id;
+			env->env_ipc_pending_envid = 0;
+			env->env_status = ENV_RUNNABLE;
+			env->env_tf.tf_regs.reg_eax = 0;
+			return 0;
+		}
 	}
 
 	curenv->env_ipc_recving = 1;
