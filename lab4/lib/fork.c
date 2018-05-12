@@ -29,8 +29,6 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 
-	// cprintf("pgfault: fault_va = %p by env %08x, eip = %p, esp = %p\n", addr, sys_getenvid(), utf->utf_eip, utf->utf_esp); // ###
-
 	if (!(err & FEC_WR))
 		panic("pgfault: faulting access was not a write\n");
 	if (!(vpd[PDX(addr)] & PTE_P) || ((vpt[PGNUM(addr)] & (PTE_P | PTE_COW)) != (PTE_P | PTE_COW)))
@@ -70,39 +68,23 @@ pgfault(struct UTrapframe *utf)
 // It is also OK to panic on error.
 //
 static int
-// duppage(envid_t envid, unsigned pn)
-duppage(envid_t dstenv, void *addr)
+duppage(envid_t envid, unsigned pn)
 {
 	// LAB 4: Your code here.
 
-	// int r;
-	// uintptr_t addr = pn * PGSIZE;
-	//
-	// if (vpt[pn] & (PTE_W | PTE_COW)) {
-	// 	if ((r = sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P | PTE_U | PTE_COW)) < 0)
-	// 		panic("sys_page_map: %e\n", r);
-	//
-	// 	if ((r = sys_page_map(0, (void *)addr, 0, (void *)addr, PTE_P | PTE_U | PTE_COW)) < 0)
-	// 		panic("sys_page_map: %e\n", r);
-	// } else {
-	// 	if ((r = sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P | PTE_U)) < 0)
-	// 		panic("sys_page_map: %e\n", r);
-	// }
-	//
-	// return 0;
-
 	int r;
+	uintptr_t addr = pn * PGSIZE;
 
-	if ((r = sys_page_alloc(dstenv, addr, PTE_P | PTE_U | PTE_W)) < 0)
-		panic("sys_page_alloc: %e\n", r);
+	if (vpt[pn] & (PTE_W | PTE_COW)) {
+		if ((r = sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P | PTE_U | PTE_COW)) < 0)
+			panic("sys_page_map: %e\n", r);
 
-	if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P | PTE_U | PTE_W)) < 0)
-		panic("sys_page_map: %e\n", r);
-
-	memmove(UTEMP, addr, PGSIZE);
-
-	if ((r = sys_page_unmap(0, UTEMP)) < 0)
-		panic("sys_page_unmap: %e\n", r);
+		if ((r = sys_page_map(0, (void *)addr, 0, (void *)addr, PTE_P | PTE_U | PTE_COW)) < 0)
+			panic("sys_page_map: %e\n", r);
+	} else {
+		if ((r = sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P | PTE_U)) < 0)
+			panic("sys_page_map: %e\n", r);
+	}
 
 	return 0;
 }
@@ -128,57 +110,32 @@ fork(void)
 {
 	// LAB 4: Your code here.
 
-	// envid_t envid;
-	// uintptr_t addr;
-	// int r;
-	//
-	// set_pgfault_handler(pgfault);
-	//
-	// envid = sys_exofork();
-	// if (envid < 0)
-	// 	panic("sys_exofork: %e\n", envid);
-	//
-	// if (envid == 0) { // Child
-	// 	thisenv = &envs[ENVX(sys_getenvid())];
-	// 	return 0;
-	// }
-	//
-	// for (addr = 0; addr < UTOP; addr += PGSIZE)
-	// 	if ((vpd[PDX(addr)] & PTE_P) && (vpt[PGNUM(addr)] & PTE_P) && addr != UXSTACKTOP - PGSIZE)
-	// 		duppage(envid, PGNUM(addr));
-	//
-	// if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0)
-	// 	panic("sys_page_alloc: %e\n", r);
-	//
-	// if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0)
-	// 	panic("sys_env_set_pgfault_upcall: %e\n", r);
-	//
-	// if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
-	// 	panic("sys_env_set_status: %e\n", r);
-	//
-	// return envid;
-
 	envid_t envid;
-	void *addr;
+	uintptr_t addr;
 	int r;
-	extern unsigned char end[];
+
+	set_pgfault_handler(pgfault);
 
 	envid = sys_exofork();
-
 	if (envid < 0)
 		panic("sys_exofork: %e\n", envid);
 
-	if (envid == 0) { // We're the child.
-		thisenv = &envs[ENVX(sys_getenvid())]; // Fix global `thisenv`.
+	if (envid == 0) { // We are the child.
+		thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}
 
-	// We're the parent.
+	// We are the parent.
 
-	for (addr = (void *)UTEXT; addr < (void *)end; addr += PGSIZE)
-		duppage(envid, addr);
+	for (addr = 0; addr < UTOP; addr += PGSIZE)
+		if ((vpd[PDX(addr)] & PTE_P) && (vpt[PGNUM(addr)] & PTE_P) && addr != UXSTACKTOP - PGSIZE)
+			duppage(envid, PGNUM(addr));
 
-	duppage(envid, ROUNDDOWN(&addr, PGSIZE));
+	if ((r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0)
+		panic("sys_page_alloc: %e\n", r);
+
+	if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0)
+		panic("sys_env_set_pgfault_upcall: %e\n", r);
 
 	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
 		panic("sys_env_set_status: %e\n", r);
