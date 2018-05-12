@@ -534,18 +534,12 @@ page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 	if (!pte)
 		return -E_NO_MEM;
 
-	physaddr_t pa = page2pa(pp);
-	if (*pte & PTE_P) {
-		if (PTE_ADDR(*pte) == pa) { // Same physical address, just change permissions.
-			*pte = pa | perm | PTE_P;
-			return 0;
-		}
-		page_remove(pgdir, va);
-	}
-
-	*pte = pa | perm | PTE_P;
 	pp->pp_ref++;
 
+	if (*pte & PTE_P)
+		page_remove(pgdir, va);
+
+	*pte = page2pa(pp) | perm | PTE_P;
 	return 0;
 }
 
