@@ -23,8 +23,16 @@ int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
-	panic("ipc_recv not implemented");
-	return 0;
+
+	int r = sys_ipc_recv(pg ? pg : (void *)UTOP);
+
+	if (from_env_store)
+		*from_env_store = r < 0 ? 0 : thisenv->env_ipc_from;
+
+	if (perm_store)
+		*perm_store = r < 0 ? 0 : thisenv->env_ipc_perm;
+
+	return r < 0 ? r : thisenv->env_ipc_value;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -33,13 +41,21 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 //
 // Hint:
 //   Use sys_yield() to be CPU-friendly.
-//   If 'pg' is null, pass sys_ipc_recv a value that it will understand
+//   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
 //   as meaning "no page".  (Zero is not the right value.)
+//
+// NOTE: The comments above apply to the original version of `ipc_send()`,
+// while the code below is the new version for the challenge problem.
+// With the new implementation of `sys_ipc_try_send()`, we no longer need to loop.
 void
 ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
 	// LAB 4: Your code here.
-	panic("ipc_send not implemented");
+
+	int r;
+
+	if ((r = sys_ipc_try_send(to_env, val, pg ? pg : (void *)UTOP, perm)) < 0)
+		panic("sys_ipc_try_send: %e\n", r);
 }
 
 // Find the first environment of the given type.  We'll use this to

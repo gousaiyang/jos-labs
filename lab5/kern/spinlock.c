@@ -55,8 +55,7 @@ holding(struct spinlock *lock)
 	return lock->locked && lock->cpu == thiscpu;
 #else
 	//LAB 4: Your code here
-	panic("ticket spinlock: not implemented yet");
-
+	return lock->own != lock->next && lock->cpu == thiscpu;
 #endif
 }
 #endif
@@ -68,6 +67,8 @@ __spin_initlock(struct spinlock *lk, char *name)
 	lk->locked = 0;
 #else
 	//LAB 4: Your code here
+	lk->own = 0;
+	lk->next = 0;
 
 #endif
 
@@ -92,12 +93,14 @@ spin_lock(struct spinlock *lk)
 #ifndef USE_TICKET_SPIN_LOCK
 	// The xchg is atomic.
 	// It also serializes, so that reads after acquire are not
-	// reordered before it. 
+	// reordered before it.
 	while (xchg(&lk->locked, 1) != 0)
 		asm volatile ("pause");
 #else
 	//LAB 4: Your code here
-
+	unsigned ticket = atomic_return_and_add(&lk->next, 1);
+	while (atomic_return_and_add(&lk->own, 0) != ticket)
+		asm volatile ("pause");
 #endif
 
 	// Record info about lock acquisition for debugging.
@@ -117,7 +120,7 @@ spin_unlock(struct spinlock *lk)
 		uint32_t pcs[10];
 		// Nab the acquiring EIP chain before it gets released
 		memmove(pcs, lk->pcs, sizeof pcs);
-		cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:", 
+		cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:",
 			cpunum(), lk->name, lk->cpu->cpu_id);
 		for (i = 0; i < 10 && pcs[i]; i++) {
 			struct Eipdebuginfo info;
@@ -137,7 +140,7 @@ spin_unlock(struct spinlock *lk)
 #endif
 
 #ifndef USE_TICKET_SPIN_LOCK
-	// The xchg serializes, so that reads before release are 
+	// The xchg serializes, so that reads before release are
 	// not reordered after it.  The 1996 PentiumPro manual (Volume 3,
 	// 7.2) says reads can be carried out speculatively and in
 	// any order, which implies we need to serialize here.
@@ -149,5 +152,6 @@ spin_unlock(struct spinlock *lk)
 	xchg(&lk->locked, 0);
 #else
 	//LAB 4: Your code here
+	atomic_return_and_add(&lk->own, 1);
 #endif
 }
