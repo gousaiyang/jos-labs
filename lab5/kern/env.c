@@ -433,9 +433,6 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
 	// LAB 3: Your code here.
 
-	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
-	// LAB 5: Your code here.
-
 	if (!binary)
 		panic("env_create: null pointer 'binary'\n");
 
@@ -447,6 +444,12 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 
 	// Set environment type.
 	e->env_type = type;
+
+	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+	// LAB 5: Your code here.
+
+	if (type == ENV_TYPE_FS)
+		e->env_tf.tf_eflags |= FL_IOPL_MASK;
 
 	// Load the program using the page directory of its environment.
 	lcr3(PADDR(e->env_pgdir));
