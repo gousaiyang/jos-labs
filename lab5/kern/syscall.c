@@ -207,7 +207,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 // Do the final work for `exec()`.
 // Copy the trapframe, the pgfault_upcall and the brk pointer
 // from envid to the current environment.
-// Swap the pgdir of the current environment and envid, load the new cr3.
+// Swap the pgdirs of the current environment and envid, load the new pgdir into cr3.
 // Then destroy envid and resume the current environment.
 //
 // Returns < 0 on error, does not return on success.  Errors are:
