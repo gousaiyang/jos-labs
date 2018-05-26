@@ -204,6 +204,38 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	return 0;
 }
 
+// Do the final work for `exec()`.
+// Copy the trapframe, the pgfault_upcall and the brk pointer
+// from envid to the current environment.
+// Swap the pgdir of the current environment and envid, load the new cr3.
+// Then destroy envid and resume the current environment.
+//
+// Returns < 0 on error, does not return on success.  Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+static int
+sys_exec_commit(envid_t envid)
+{
+	int r;
+	struct Env *env;
+
+	if ((r = envid2env(envid, &env, 1)) < 0)
+		return r;
+
+	curenv->env_tf = env->env_tf;
+	curenv->env_pgfault_upcall = env->env_pgfault_upcall;
+	curenv->env_break = env->env_break;
+
+	pde_t *tmp_pgdir = curenv->env_pgdir;
+	curenv->env_pgdir = env->env_pgdir;
+	env->env_pgdir = tmp_pgdir;
+	lcr3(PADDR(curenv->env_pgdir));
+
+	env_destroy(env);
+	env_run(curenv);
+	return 0;
+}
+
 // Allocate a page of memory and map it at 'va' with permission
 // 'perm' in the address space of 'envid'.
 // The page's contents are set to 0.
@@ -584,6 +616,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_env_set_pgfault_upcall:
 			ret = sys_env_set_pgfault_upcall(a1, (void *)a2);
+			break;
+		case SYS_exec_commit:
+			ret = sys_exec_commit(a1);
 			break;
 		case SYS_page_alloc:
 			ret = sys_page_alloc(a1, (void *)a2, a3);
