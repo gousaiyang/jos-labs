@@ -13,6 +13,7 @@
 /qemu.log
 /gradelib.pyc
 /lab?-handin.tar.gz
+/*.tar.gz
 /lab?/
 /sol?/
 /conf/lab.mk

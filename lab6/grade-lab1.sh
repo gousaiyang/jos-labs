@@ -46,7 +46,7 @@ score=0
 		echo_n "Count WRONG"
 	fi
 
-	cnt=`grep "ebp f01.* eip f0100.* args" jos.out | awk 'BEGIN { FS = ORS = " " }
+	cnt=`grep "eip f0100.* ebp f01.* args" jos.out | awk 'BEGIN { FS = ORS = " " }
 { print $6 }
 END { printf("\n") }' | grep '^00000000 00000000 00000001 00000002 00000003 00000004 00000005' | wc -w`
 	if [ $cnt -eq 8 ]; then
