@@ -129,7 +129,7 @@ check_bc(void)
 	memmove(diskaddr(1), &backup, sizeof backup);
 	flush_block(diskaddr(1));
 
-	cprintf("block cache is good\n");
+	// cprintf("block cache is good\n");
 }
 
 void

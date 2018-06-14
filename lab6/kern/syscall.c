@@ -13,6 +13,7 @@
 #include <kern/sched.h>
 #include <kern/spinlock.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -567,7 +568,18 @@ static int
 sys_time_msec(void)
 {
 	// LAB 6: Your code here.
-	panic("sys_time_msec not implemented");
+	return time_msec();
+}
+
+// Transmit data through network.
+// Returns 0 on success, < 0 on error. Errors are:
+//   -E_INVAL if parameter is invalid.
+//   -E_TX_FULL if transmit queue is full.
+static int
+sys_net_try_send(char *data, unsigned len)
+{
+	user_mem_assert(curenv, data, len, PTE_U);
+	return e1000_transmit(data, len);
 }
 
 // Lock kernel and fetch trapframe when called from `sysenter`.
@@ -646,6 +658,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_sbrk:
 			ret = sys_sbrk(a1);
+			break;
+		case SYS_time_msec:
+			ret = sys_time_msec();
+			break;
+		case SYS_net_try_send:
+			ret = sys_net_try_send((char *)a1, a2);
 			break;
 		default:
 			ret = -E_INVAL;
