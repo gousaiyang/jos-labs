@@ -77,7 +77,24 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	panic("send_data not implemented");
+
+	int r;
+	char buf[1518];
+	struct Stat st;
+
+	if ((r = fstat(fd, &st)) < 0)
+		die("send_data: fstat failed");
+
+	if (st.st_size > 1518)
+		die("send_data: file too large");
+
+	if ((r = readn(fd, buf, st.st_size)) != st.st_size)
+		die("send_data: readn failed");
+
+	if ((r = write(req->sock, buf, st.st_size)) != st.st_size)
+		die("send_data: write failed");
+
+	return 0;
 }
 
 static int
@@ -197,12 +214,12 @@ send_error(struct http_request *req, int code)
 		return -1;
 
 	r = snprintf(buf, 512, "HTTP/" HTTP_VERSION" %d %s\r\n"
-			       "Server: jhttpd/" VERSION "\r\n"
-			       "Connection: close"
-			       "Content-type: text/html\r\n"
-			       "\r\n"
-			       "<html><body><p>%d - %s</p></body></html>\r\n",
-			       e->code, e->msg, e->code, e->msg);
+				"Server: jhttpd/" VERSION "\r\n"
+				"Connection: close"
+				"Content-type: text/html\r\n"
+				"\r\n"
+				"<html><body><p>%d - %s</p></body></html>\r\n",
+				e->code, e->msg, e->code, e->msg);
 
 	if (write(req->sock, buf, r) != r)
 		return -1;
@@ -223,7 +240,25 @@ send_file(struct http_request *req)
 	// set file_size to the size of the file
 
 	// LAB 6: Your code here.
-	panic("send_file not implemented");
+
+	struct Stat st;
+
+	if ((fd = open(req->url, O_RDONLY)) < 0) {
+		send_error(req, 404);
+		r = fd;
+		goto end;
+	}
+
+	if ((r = fstat(fd, &st)) < 0)
+		goto end;
+
+	if (st.st_isdir) {
+		send_error(req, 404);
+		r = -1;
+		goto end;
+	}
+
+	file_size = st.st_size;
 
 	if ((r = send_header(req, 200)) < 0)
 		goto end;

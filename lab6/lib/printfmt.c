@@ -35,6 +35,9 @@ static const char * const error_string[MAXERROR] =
 	[E_FILE_EXISTS]	= "file already exists",
 	[E_NOT_EXEC]	= "file is not a valid executable",
 	[E_NOT_SUPP]	= "operation not supported",
+	[E_TX_FULL]		= "Transmit queue is full",
+	[E_RX_EMPTY]	= "Receive queue is empty",
+	[E_RX_LONG]		= "Received packet is too long",
 };
 
 /*

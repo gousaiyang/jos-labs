@@ -142,7 +142,7 @@ sys_ipc_recv(void *dstva)
 int
 sys_sbrk(uint32_t inc)
 {
-	 return syscall(SYS_sbrk, 0, (uint32_t)inc, (uint32_t)0, 0, 0, 0);
+	return syscall(SYS_sbrk, 0, (uint32_t)inc, (uint32_t)0, 0, 0, 0);
 }
 
 unsigned int
@@ -155,4 +155,10 @@ int
 sys_net_try_send(char *data, unsigned len)
 {
 	return syscall(SYS_net_try_send, 1, (uint32_t)data, len, 0, 0, 0);
+}
+
+int
+sys_net_receive(char *data)
+{
+	return syscall(SYS_net_receive, 0, (uint32_t)data, 0, 0, 0, 0);
 }

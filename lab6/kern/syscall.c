@@ -582,6 +582,18 @@ sys_net_try_send(char *data, unsigned len)
 	return e1000_transmit(data, len);
 }
 
+// Receive data from network.
+// Returns length of data received on success, < 0 on error. Errors are:
+//   -E_INVAL if parameter is invalid.
+//   -E_RX_EMPTY if receive queue is empty.
+//   -E_RX_LONG if received packet is too long.
+static int
+sys_net_receive(char *data)
+{
+	user_mem_assert(curenv, ROUNDDOWN(data, PGSIZE), PGSIZE, PTE_U | PTE_W);
+	return e1000_receive(data);
+}
+
 // Lock kernel and fetch trapframe when called from `sysenter`.
 int32_t
 sysenter(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, struct Trapframe *tf)
@@ -664,6 +676,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_net_try_send:
 			ret = sys_net_try_send((char *)a1, a2);
+			break;
+		case SYS_net_receive:
+			ret = sys_net_receive((char *)a1);
 			break;
 		default:
 			ret = -E_INVAL;
