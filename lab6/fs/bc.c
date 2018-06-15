@@ -96,7 +96,7 @@ flush_block(void *addr)
 		panic("flushing non-existent block %08x\n", blockno);
 
 	if ((r = ide_write(blockno * BLKSECTS, addr, BLKSECTS)) < 0)
-		panic("ide_write: %e\n");
+		panic("ide_write: %e\n", r);
 
 	if ((r = sys_page_map(0, addr, 0, addr, PTE_SYSCALL)) < 0)
 		panic("sys_page_map: %e\n", r);

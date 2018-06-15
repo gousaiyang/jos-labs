@@ -7,6 +7,14 @@ struct e1000_rx_desc rx_queue[E1000_NRX] __attribute__((aligned(16)));
 char tx_bufs[E1000_NTX][TX_PKT_SIZE];
 char rx_bufs[E1000_NRX][RX_PKT_SIZE];
 
+static uint16_t e1000_read_eeprom(uint8_t addr)
+{
+	volatile uint32_t *eerd = (uint32_t *)&e1000_addr[E1000_EERD >> 2];
+	*eerd = (addr << 8) | E1000_EERD_START;
+	while (!(*eerd & E1000_EERD_DONE)) ;
+	return *eerd >> 16;
+}
+
 int
 e1000_attach(struct pci_func *pcif)
 {
@@ -37,8 +45,21 @@ e1000_attach(struct pci_func *pcif)
 	e1000_addr[E1000_TCTL >> 2] &= ~E1000_TCTL_CT & ~E1000_TCTL_COLD;
 	e1000_addr[E1000_TIPG >> 2] = 0x60100a;
 
-	e1000_addr[E1000_RAL0 >> 2] = 0x12005452;
-	e1000_addr[E1000_RAH0 >> 2] = 0x5634 | E1000_RAH_AV;
+	uint16_t mac_l = e1000_read_eeprom(0x0);
+	uint16_t mac_m = e1000_read_eeprom(0x1);
+	uint16_t mac_h = e1000_read_eeprom(0x2);
+	e1000_mac[0] = mac_l & 0xff;
+	e1000_mac[1] = (mac_l >> 8) & 0xff;
+	e1000_mac[2] = mac_m & 0xff;
+	e1000_mac[3] = (mac_m >> 8) & 0xff;
+	e1000_mac[4] = mac_h & 0xff;
+	e1000_mac[5] = (mac_h >> 8) & 0xff;
+
+	cprintf("E1000 MAC address = %02x:%02x:%02x:%02x:%02x:%02x\n", e1000_mac[0], e1000_mac[1], e1000_mac[2],
+		e1000_mac[3], e1000_mac[4], e1000_mac[5]);
+
+	e1000_addr[E1000_RAL0 >> 2] = *(uint32_t *)e1000_mac;
+	e1000_addr[E1000_RAH0 >> 2] = *(uint16_t *)(e1000_mac + 4) | E1000_RAH_AV;
 	e1000_addr[E1000_RDBAL >> 2] = PADDR(rx_queue);
 	e1000_addr[E1000_RDBAH >> 2] = 0;
 	e1000_addr[E1000_RDLEN >> 2] = sizeof(rx_queue);

@@ -578,7 +578,7 @@ sys_time_msec(void)
 static int
 sys_net_try_send(char *data, unsigned len)
 {
-	user_mem_assert(curenv, data, len, PTE_U);
+	user_mem_assert(curenv, data, len, 0);
 	return e1000_transmit(data, len);
 }
 
@@ -590,8 +590,17 @@ sys_net_try_send(char *data, unsigned len)
 static int
 sys_net_receive(char *data)
 {
-	user_mem_assert(curenv, ROUNDDOWN(data, PGSIZE), PGSIZE, PTE_U | PTE_W);
+	user_mem_assert(curenv, ROUNDDOWN(data, PGSIZE), PGSIZE, PTE_W);
 	return e1000_receive(data);
+}
+
+// Get the MAC address of E1000.
+static int
+sys_net_get_mac(char* mac)
+{
+	user_mem_assert(curenv, mac, 6, PTE_W);
+	memmove(mac, e1000_mac, 6);
+	return 0;
 }
 
 // Lock kernel and fetch trapframe when called from `sysenter`.
@@ -679,6 +688,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 		case SYS_net_receive:
 			ret = sys_net_receive((char *)a1);
+			break;
+		case SYS_net_get_mac:
+			ret = sys_net_get_mac((char *)a1);
 			break;
 		default:
 			ret = -E_INVAL;

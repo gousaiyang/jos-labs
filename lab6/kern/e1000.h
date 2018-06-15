@@ -50,7 +50,12 @@
 #define E1000_NRX 128
 #define RX_PKT_SIZE 2048
 
+#define E1000_EERD 0x14
+#define E1000_EERD_START 0x1
+#define E1000_EERD_DONE 0x10
+
 volatile uint32_t *e1000_addr;
+uint8_t e1000_mac[6];
 
 struct e1000_tx_desc {
 	uint64_t buffer_addr;

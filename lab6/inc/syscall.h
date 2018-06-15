@@ -27,6 +27,7 @@ enum {
 
 	SYS_net_try_send,
 	SYS_net_receive,
+	SYS_net_get_mac,
 
 	NSYSCALLS
 };

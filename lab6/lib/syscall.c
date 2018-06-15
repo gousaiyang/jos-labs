@@ -162,3 +162,9 @@ sys_net_receive(char *data)
 {
 	return syscall(SYS_net_receive, 0, (uint32_t)data, 0, 0, 0, 0);
 }
+
+int
+sys_net_get_mac(char *mac)
+{
+	return syscall(SYS_net_get_mac, 1, (uint32_t)mac, 0, 0, 0, 0);
+}
