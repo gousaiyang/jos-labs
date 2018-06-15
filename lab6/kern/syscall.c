@@ -573,7 +573,7 @@ sys_time_msec(void)
 
 // Transmit data through network.
 // Returns 0 on success, < 0 on error. Errors are:
-//   -E_INVAL if parameter is invalid.
+//   -E_INVAL if one of the parameters is invalid.
 //   -E_TX_FULL if transmit queue is full.
 static int
 sys_net_try_send(char *data, unsigned len)
@@ -584,7 +584,7 @@ sys_net_try_send(char *data, unsigned len)
 
 // Receive data from network.
 // Returns length of data received on success, < 0 on error. Errors are:
-//   -E_INVAL if parameter is invalid.
+//   -E_INVAL if the parameter is invalid.
 //   -E_RX_EMPTY if receive queue is empty.
 //   -E_RX_LONG if received packet is too long.
 static int

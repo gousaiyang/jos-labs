@@ -78,21 +78,31 @@ send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
 
-	int r;
-	char buf[1518];
+	int r, i, whole_bufs, rest_size;
+	char buf[BUFFSIZE];
 	struct Stat st;
 
 	if ((r = fstat(fd, &st)) < 0)
 		die("send_data: fstat failed");
 
-	if (st.st_size > 1518)
-		die("send_data: file too large");
+	whole_bufs = st.st_size / BUFFSIZE;
+	rest_size = st.st_size % BUFFSIZE;
 
-	if ((r = readn(fd, buf, st.st_size)) != st.st_size)
-		die("send_data: readn failed");
+	for (i = 0; i < whole_bufs; ++i) {
+		if ((r = readn(fd, buf, BUFFSIZE)) != BUFFSIZE)
+			die("send_data: readn failed");
 
-	if ((r = write(req->sock, buf, st.st_size)) != st.st_size)
-		die("send_data: write failed");
+		if ((r = write(req->sock, buf, BUFFSIZE)) != BUFFSIZE)
+			die("send_data: write failed");
+	}
+
+	if (rest_size) {
+		if ((r = readn(fd, buf, rest_size)) != rest_size)
+			die("send_data: readn failed");
+
+		if ((r = write(req->sock, buf, rest_size)) != rest_size)
+			die("send_data: write failed");
+	}
 
 	return 0;
 }

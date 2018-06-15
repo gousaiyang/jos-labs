@@ -7,7 +7,8 @@ struct e1000_rx_desc rx_queue[E1000_NRX] __attribute__((aligned(16)));
 char tx_bufs[E1000_NTX][TX_PKT_SIZE];
 char rx_bufs[E1000_NRX][RX_PKT_SIZE];
 
-static uint16_t e1000_read_eeprom(uint8_t addr)
+static uint16_t
+e1000_read_eeprom(uint8_t addr)
 {
 	volatile uint32_t *eerd = (uint32_t *)&e1000_addr[E1000_EERD >> 2];
 	*eerd = (addr << 8) | E1000_EERD_START;
